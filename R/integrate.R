@@ -685,6 +685,7 @@ assemble.mega.file <- function (roster.master=NULL,
     }, TRUE)
     if (kk %% 100 == 0) message(paste("Event assembly: game",kk,"of",dim(games)[1]))
   }
+  all.games <- all.games[!sapply(all.games, is.null)]
   grand.data <- fold.frames(all.games)
 
   save(grand.data, roster.master, games, file=output.file)
