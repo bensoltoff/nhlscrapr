@@ -45,6 +45,7 @@ full.game.database <- function () {
                       hometeam="",
                       awayscore="",
                       homescore="",
+                      length="",
                       date="",
                       valid=c(!(1:games[ss] %in% bad.game.list[[ss]]), rep(TRUE, length(gnum))),
                       stringsAsFactors=FALSE)
@@ -201,8 +202,12 @@ process.single.game <- function (season="20122013", gcode="20001",
       if (length(refdate) == 0) refdate <- 0
       playbyplay <- cbind(season, gcode, refdate, playbyplay)
       
-  
-  #goals and game score.
+      ## add indicator if period is a shootout
+      playbyplay$shootout <- 0
+      playbyplay$shootout[which(as.numeric(as.character(playbyplay$gcode))<30000 & playbyplay$period==5)] <- 1
+      
+      
+  #goals and game score.  
       playbyplay$away.score <- playbyplay$home.score <- 0
       home.goals <- which(playbyplay$etype=="GOAL" & playbyplay$ev.team==game.info$teams[2])
       if (length(home.goals)>0) for (gg in 1:length(home.goals)) if (home.goals[gg] < dim(playbyplay)[1])
@@ -555,9 +560,34 @@ construct.rosters <- function (games=full.game.database(),
         games$hometeam[kk] <- game.info$teams[2]
         games$date[kk] <- paste(game.info$date, collapse=" ")
         games$awayscore[kk] <- length(which(game.info$playbyplay$etype=="GOAL" &
-                                            game.info$playbyplay$ev.team==game.info$teams[1]))
+                                            game.info$playbyplay$ev.team==game.info$teams[1] &
+                                            game.info$playbyplay$shootout==0))
         games$homescore[kk] <- length(which(game.info$playbyplay$etype=="GOAL" &
-                                            game.info$playbyplay$ev.team==game.info$teams[2]))
+                                            game.info$playbyplay$ev.team==game.info$teams[2] &
+                                            game.info$playbyplay$shootout==0))
+        
+        ##add one goal for shootout winner
+        if (max(game.info$playbyplay$shootout)==1){
+           if (max(game.info$playbyplay$away.score) > max(game.info$playbyplay$home.score)) {
+             games$awayscore[kk] <- length(which(game.info$playbyplay$etype=="GOAL" &
+                                                 game.info$playbyplay$ev.team==game.info$teams[1] &
+                                                 game.info$playbyplay$shootout==0)) +1
+           } else if (max(game.info$playbyplay$away.score) < max(game.info$playbyplay$home.score)) {
+             games$homescore[kk] <- length(which(game.info$playbyplay$etype=="GOAL" &
+                                                 game.info$playbyplay$ev.team==game.info$teams[2] &
+                                                 game.info$playbyplay$shootout==0)) +1
+           }
+        }
+        
+        if (max(game.info$playbyplay$period)==3) {
+          games$length[kk] <- "REG"
+        } else if (max(game.info$playbyplay$period)==4) {
+          games$length[kk] <- "OT"
+        } else if (max(game.info$playbyplay$period)==5 & games$session[kk]=="Regular") {
+          games$length[kk] <- "SO"
+        } else if (max(game.info$playbyplay$period)>=5 & games$session[kk]=="Playoff") {
+          games$length[kk] <- "OT"
+        }
 
         if (length(game.info$playbyplay) == 0) games$valid[kk] <- FALSE
       }, TRUE)
